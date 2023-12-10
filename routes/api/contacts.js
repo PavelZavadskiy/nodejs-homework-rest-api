@@ -1,8 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const controllerContacts = require('../../controllers/contacts');
-const { validateBodyContacts } = require('../../middlewares');
+const { validateBodyContacts, authenticate } = require('../../middlewares');
 const {joiSchema} = require('../../schemas/contacts');
+
+router.use(authenticate);
 
 router.get('/', controllerContacts.getAll);
 
