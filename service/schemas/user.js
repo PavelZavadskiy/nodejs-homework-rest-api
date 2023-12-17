@@ -18,6 +18,9 @@ const userSchema = new Schema({
 
     required: [true, 'Set password'],
   },
+  avatarURL: {
+    type: String,
+  },
   subscription: {
     type: String,
     enum: ["starter", "pro", "business"],
@@ -25,7 +28,7 @@ const userSchema = new Schema({
   },
   token: {
     type: String,
-  }
+  },
 }, { versionKey: false, timestamps: true });
 
 userSchema.post("save", handleSaveError);
