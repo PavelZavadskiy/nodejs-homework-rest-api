@@ -2,6 +2,10 @@ const { Users } = require('../service/schemas/user.js');
 const { HttpError, CtrlWrapper } = require('../helpers');
 const bcrytp = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const gravatar = require('gravatar');
+const fs = require('fs').promises;
+const path = require('path');
+const Jimp = require("jimp");
 
 const signUp = async (req, res, next) => {
   const user = await Users.findOne({ email: req.body.email });
@@ -9,9 +13,10 @@ const signUp = async (req, res, next) => {
     throw HttpError(409, 'Email in use');
 
   const password = await bcrytp.hash(req.body.password, 10);
+  const avatarURL = gravatar.url(req.body.email);
+  const newUser = await Users.create({ ...req.body, password, avatarURL });
 
-  const newUser = await Users.create({ ...req.body, password });
-  res.status(201).json({ name: newUser.name, email: newUser.email });
+  res.status(201).json({ name: newUser.name, email: newUser.email, avatarURL: newUser.avatarURL });
 };
 
 const signIn = async (req, res, next) => {
@@ -48,10 +53,35 @@ const updateSubscription = async (req, res, next) => {
   res.json({ email, subscription });
 };
 
+const updateAvatar = async (req, res, next) => {
+  const { _id } = req.user;
+  const { path: oldPath, filename } = req.file;
+
+  await Jimp.read(oldPath)
+    .then((lenna) => {
+      return lenna
+        .resize(250, 250) // resize
+        .write(oldPath); // save
+    })
+    .catch((err) => {
+      throw HttpError(500, err.message);
+    });
+
+  const newPath = path.resolve('public', 'avatars', filename);
+  await fs.rename(oldPath, newPath);
+
+  const avatar = path.join('avatars', filename);
+
+  const { avatarURL } = await Users.findByIdAndUpdate(_id, { avatarURL: avatar });
+
+  res.json({ avatarURL });
+};
+
 module.exports = {
   signUp: CtrlWrapper(signUp),
   signIn: CtrlWrapper(signIn),
   getCurrent: CtrlWrapper(getCurrent),
   signOut: CtrlWrapper(signOut),
   updateSubscription: CtrlWrapper(updateSubscription),
+  updateAvatar: CtrlWrapper(updateAvatar),
 };
