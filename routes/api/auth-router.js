@@ -1,6 +1,6 @@
 const authController = require('../../controllers/auh-controller');
 const { isEmptyBody, validateBody } = require('../../middlewares')
-const { userSignupSchema, userSigninSchema } = require('../../service/schemas/user');
+const { userSignupSchema, userSigninSchema, userEmailSchema } = require('../../service/schemas/user');
 const { authenticate } = require('../../middlewares/authenticate');
 const { upload } = require('../../middlewares')
 
@@ -8,6 +8,10 @@ const express = require('express');
 const router = express.Router();
 
 router.post('/register', isEmptyBody, validateBody(userSignupSchema), authController.signUp);
+
+router.get('/verify/:verificationToken', authController.verify);
+
+router.post('/verify', isEmptyBody, validateBody(userEmailSchema), authController.resendVerify);
 
 router.post('/login', isEmptyBody, validateBody(userSigninSchema), authController.signIn);
 

@@ -6,6 +6,9 @@ const gravatar = require('gravatar');
 const fs = require('fs').promises;
 const path = require('path');
 const Jimp = require("jimp");
+const { nanoid } = require('nanoid');
+const { sendMail } = require('../helpers/sendEmail.js');
+require('dotenv').config();
 
 const signUp = async (req, res, next) => {
   const user = await Users.findOne({ email: req.body.email });
@@ -14,7 +17,10 @@ const signUp = async (req, res, next) => {
 
   const password = await bcrytp.hash(req.body.password, 10);
   const avatarURL = gravatar.url(req.body.email);
-  const newUser = await Users.create({ ...req.body, password, avatarURL });
+  const verificationToken = nanoid();
+
+  sendMail(req.body.email, "Verificate email", `<a target="_blank" href="${process.env.BASE_URL}:${process.env.PORT}/users/verify/${verificationToken}">Click verify email</a>`);
+  const newUser = await Users.create({ ...req.body, password, avatarURL, verificationToken });
 
   res.status(201).json({ name: newUser.name, email: newUser.email, avatarURL: newUser.avatarURL });
 };
@@ -23,6 +29,10 @@ const signIn = async (req, res, next) => {
   const user = await Users.findOne({ email: req.body.email });
   if (!user)
     throw HttpError(401, 'User not found');
+
+  if (!user.verify) {
+    throw HttpError(401, 'Email not verify');
+  }
 
   const passwordCompare = await bcrytp.compare(req.body.password, user.password);
   if (!passwordCompare)
@@ -77,6 +87,31 @@ const updateAvatar = async (req, res, next) => {
   res.json({ avatarURL });
 };
 
+const resendVerify = async (req, res, next) => {
+  const { email } = req.body;
+  const user = await Users.findOne({ email });
+  if (!user) {
+    throw HttpError(404, 'Not Found');
+  }
+  if (user.verify) {
+    throw HttpError(400, 'Verification has already been passed');
+  }
+
+  sendMail(req.body.email, "Verificate email", `<a target="_blank" href="${process.env.BASE_URL}:${process.env.PORT}/users/verify/${user.verificationToken}">Click verify email</a>`);
+
+  res.json({ message: "Verification email sent" });
+}
+
+const verify = async (req, res, next) => {
+  const { verificationToken } = req.params;
+  const user = await Users.findOne({ verificationToken });
+  if (!user) {
+    throw HttpError(404, 'Not Found');
+  }
+  await Users.findByIdAndUpdate(user._id, { verify: true, verificationToken: null });
+  res.json({ message: "Verification successful" });
+}
+
 module.exports = {
   signUp: CtrlWrapper(signUp),
   signIn: CtrlWrapper(signIn),
@@ -84,4 +119,6 @@ module.exports = {
   signOut: CtrlWrapper(signOut),
   updateSubscription: CtrlWrapper(updateSubscription),
   updateAvatar: CtrlWrapper(updateAvatar),
+  verify: CtrlWrapper(verify),
+  resendVerify: CtrlWrapper(resendVerify),
 };
